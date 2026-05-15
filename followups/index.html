@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Follow-ups — TravelCRM</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav id="topnav"><button class="hamburger" onclick="toggleSidebar()">☰</button></nav>
+<div class="app-layout">
+  <nav id="sidebar"></nav>
+  <main class="main-content">
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+      <div><h1>Follow-up Manager</h1><p>Track and manage all scheduled follow-ups</p></div>
+      <button class="btn btn-primary" onclick="openModal('scheduleModal')">+ Schedule Follow-up</button>
+    </div>
+    <div class="stats-grid" id="fupStats"></div>
+    <div class="card">
+      <div class="filters-bar">
+        <select id="filterPeriod" onchange="renderTable()">
+          <option value="all">All Follow-ups</option>
+          <option value="today">Today</option>
+          <option value="week">This Week</option>
+          <option value="overdue">Overdue</option>
+          <option value="completed">Completed</option>
+        </select>
+        <input type="search" id="searchInput" placeholder="🔍 Search lead name…" oninput="renderTable()">
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Lead Name</th><th>Phone</th><th>Scheduled</th><th>Note</th><th>Assignee</th><th>Status</th><th>Actions</th></tr></thead>
+          <tbody id="fupBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Schedule Modal -->
+<div class="modal-overlay" id="scheduleModal">
+  <div class="modal">
+    <div class="modal-header"><h2>Schedule Follow-up</h2><button class="modal-close" onclick="closeModal('scheduleModal')">×</button></div>
+    <div class="form-grid">
+      <div class="form-group full">
+        <label>Select Lead</label>
+        <select id="sLead" style="width:100%"></select>
+      </div>
+      <div class="form-group"><label>Date</label><input id="sDate" type="date"></div>
+      <div class="form-group"><label>Time</label><input id="sTime" type="time" value="10:00"></div>
+      <div class="form-group full"><label>Note</label><textarea id="sNote" placeholder="What to discuss…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('scheduleModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveSchedule()">Schedule</button>
+    </div>
+  </div>
+</div>
+
+<!-- Complete Modal -->
+<div class="modal-overlay" id="completeModal">
+  <div class="modal">
+    <div class="modal-header"><h2>Mark Follow-up Complete</h2><button class="modal-close" onclick="closeModal('completeModal')">×</button></div>
+    <div class="form-group">
+      <label>Result / Outcome</label>
+      <textarea id="completeResult" rows="3" placeholder="What happened on this follow-up?"></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('completeModal')">Cancel</button>
+      <button class="btn btn-success" onclick="doComplete()">✅ Mark Complete</button>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/app.js"></script>
+<script>
+const session = requireAuth(['admin','crm','tl']);
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');}
+let completingRef = null;
+
+function buildLeadDropdown(){
+  let leads = getLeads();
+  if(session && session.role==='crm') leads = leads.filter(l=>l.assigneeEmail===session.email);
+  document.getElementById('sLead').innerHTML = leads.map(l=>`<option value="${l.id}">${l.name} — ${l.phone}</option>`).join('');
+  const today = new Date().toISOString().slice(0,10);
+  document.getElementById('sDate').value = today;
+}
+
+function getAllFollowUps(){
+  let leads = getLeads();
+  if(session && session.role==='crm') leads = leads.filter(l=>l.assigneeEmail===session.email);
+  const rows = [];
+  leads.forEach(l=>{
+    (l.followUps||[]).forEach((f,i)=>{
+      rows.push({ leadId:l.id, leadName:l.name, phone:l.phone, assigneeName:l.assigneeName, fupIndex:i, ...f });
+    });
+  });
+  return rows;
+}
+
+function filterRows(rows){
+  const period = document.getElementById('filterPeriod').value;
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const today = new Date(); today.setHours(0,0,0,0);
+  const endWeek = new Date(today); endWeek.setDate(endWeek.getDate()+7);
+  let r = rows;
+  if(q) r = r.filter(x=>x.leadName.toLowerCase().includes(q));
+  if(period==='today') r = r.filter(x=>new Date(x.scheduledDate).toDateString()===today.toDateString() && !x.completedAt);
+  else if(period==='week') r = r.filter(x=>{ const d=new Date(x.scheduledDate); return d>=today && d<=endWeek && !x.completedAt; });
+  else if(period==='overdue') r = r.filter(x=>new Date(x.scheduledDate)<today && !x.completedAt);
+  else if(period==='completed') r = r.filter(x=>!!x.completedAt);
+  return r;
+}
+
+function renderStats(){
+  const all = getAllFollowUps();
+  const today = new Date(); today.setHours(0,0,0,0);
+  document.getElementById('fupStats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value">${all.length}</div></div>
+    <div class="stat-card yellow"><div class="stat-label">Today</div><div class="stat-value">${all.filter(x=>new Date(x.scheduledDate).toDateString()===today.toDateString()&&!x.completedAt).length}</div></div>
+    <div class="stat-card red"><div class="stat-label">Overdue</div><div class="stat-value">${all.filter(x=>new Date(x.scheduledDate)<today&&!x.completedAt).length}</div></div>
+    <div class="stat-card green"><div class="stat-label">Completed</div><div class="stat-value">${all.filter(x=>x.completedAt).length}</div></div>`;
+}
+
+function renderTable(){
+  const today = new Date(); today.setHours(0,0,0,0);
+  const rows = filterRows(getAllFollowUps()).sort((a,b)=>new Date(a.scheduledDate)-new Date(b.scheduledDate));
+  document.getElementById('fupBody').innerHTML = rows.map(r=>{
+    const isOverdue = !r.completedAt && new Date(r.scheduledDate)<today;
+    return `<tr class="${isOverdue?'overdue':''}">
+      <td><a href="../leads/detail.html?id=${r.leadId}"><b>${r.leadName}</b></a></td>
+      <td>${r.phone}</td>
+      <td>${r.scheduledDate} ${r.scheduledTime||''} ${isOverdue?'<span class="overdue-tag">OVERDUE</span>':''}</td>
+      <td class="td-muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${r.note||'—'}</td>
+      <td>${r.assigneeName||'—'}</td>
+      <td>${r.completedAt?'<span class="badge badge-green">Completed</span>':'<span class="badge badge-yellow">Pending</span>'}</td>
+      <td>
+        ${!r.completedAt?`<button class="btn btn-sm btn-success" onclick="openComplete('${r.leadId}',${r.fupIndex})">✅ Done</button>`:'<span class="td-muted">—</span>'}
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="7" style="text-align:center;padding:30px" class="td-muted">No follow-ups found</td></tr>';
+}
+
+function saveSchedule(){
+  const id = document.getElementById('sLead').value;
+  const d = document.getElementById('sDate').value;
+  if(!id || !d){ showToast('Select a lead and date','error'); return; }
+  const lead = getLeadById(id);
+  if(!lead) return;
+  if(!lead.followUps) lead.followUps=[];
+  lead.followUps.push({ scheduledDate:d, scheduledTime:document.getElementById('sTime').value, note:document.getElementById('sNote').value.trim(), completedAt:null, result:null });
+  lead.status='Follow-up';
+  updateLead(lead); closeModal('scheduleModal'); renderStats(); renderTable();
+  showToast('Follow-up scheduled','success');
+}
+
+function openComplete(leadId, idx){
+  completingRef = {leadId, idx};
+  document.getElementById('completeResult').value='';
+  openModal('completeModal');
+}
+
+function doComplete(){
+  if(!completingRef) return;
+  const lead = getLeadById(completingRef.leadId);
+  if(!lead) return;
+  lead.followUps[completingRef.idx].completedAt = now();
+  lead.followUps[completingRef.idx].result = document.getElementById('completeResult').value.trim();
+  updateLead(lead); closeModal('completeModal'); renderStats(); renderTable();
+  showToast('Follow-up marked complete','success');
+  completingRef = null;
+}
+
+buildLeadDropdown(); renderStats(); renderTable();
+</script>
+</body>
+</html>

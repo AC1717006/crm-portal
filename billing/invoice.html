@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Invoice — TravelCRM</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav id="topnav"><button class="hamburger" onclick="toggleSidebar()">☰</button></nav>
+<div class="app-layout">
+  <nav id="sidebar"></nav>
+  <main class="main-content">
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+      <div><h1>Create / View Invoice</h1><p>Manage invoice for a specific lead</p></div>
+      <a href="index.html" class="btn btn-secondary">← Back</a>
+    </div>
+    <div class="card" style="max-width:640px">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Select Lead *</label>
+          <select id="iLead" style="width:100%" onchange="loadBilling()"></select>
+        </div>
+        <div class="form-group"><label>Invoice Number *</label><input id="iNo" placeholder="INV-001"></div>
+        <div class="form-group"><label>Amount (₹) *</label><input id="iAmount" type="number" min="0" placeholder="0"></div>
+        <div class="form-group"><label>Payment Status</label>
+          <select id="iStatus">
+            <option>Pending</option><option>Partial</option><option>Paid</option><option>Overdue</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Paid On</label><input id="iPaidOn" type="date"></div>
+        <div class="form-group full"><label>Notes</label><textarea id="iNotes" rows="3" placeholder="Payment details…"></textarea></div>
+      </div>
+      <div id="existingBadge" style="margin-bottom:12px;display:none">
+        <span class="badge badge-teal">Existing invoice loaded — editing</span>
+      </div>
+      <div class="btn-group">
+        <button class="btn btn-secondary" onclick="clearForm()">Clear</button>
+        <button class="btn btn-primary" onclick="saveInvoice()">💾 Save Invoice</button>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="../assets/app.js"></script>
+<script>
+requireAuth(['admin','accounts']);
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');}
+
+const leads = getLeads();
+document.getElementById('iLead').innerHTML = leads.map(l=>`<option value="${l.id}">${l.name} — ${l.phone}</option>`).join('');
+document.getElementById('iNo').value = 'INV-'+String(Date.now()).slice(-4);
+
+const params = new URLSearchParams(location.search);
+const preId = params.get('id');
+if(preId){ document.getElementById('iLead').value=preId; loadBilling(); }
+
+function loadBilling(){
+  const id = document.getElementById('iLead').value;
+  const lead = getLeadById(id);
+  if(!lead) return;
+  const b = lead.billing||{};
+  if(b.invoiceNo){
+    document.getElementById('iNo').value=b.invoiceNo;
+    document.getElementById('iAmount').value=b.amount||'';
+    document.getElementById('iStatus').value=b.paymentStatus||'Pending';
+    document.getElementById('iPaidOn').value=b.paidOn||'';
+    document.getElementById('iNotes').value=b.notes||'';
+    document.getElementById('existingBadge').style.display='block';
+  } else {
+    clearForm(false);
+    document.getElementById('existingBadge').style.display='none';
+  }
+}
+
+function clearForm(resetNo=true){
+  if(resetNo) document.getElementById('iNo').value='INV-'+String(Date.now()).slice(-4);
+  document.getElementById('iAmount').value='';
+  document.getElementById('iStatus').value='Pending';
+  document.getElementById('iPaidOn').value='';
+  document.getElementById('iNotes').value='';
+  document.getElementById('existingBadge').style.display='none';
+}
+
+function saveInvoice(){
+  const id = document.getElementById('iLead').value;
+  const lead = getLeadById(id);
+  if(!lead){ showToast('Lead not found','error'); return; }
+  const no = document.getElementById('iNo').value.trim();
+  const amt = Number(document.getElementById('iAmount').value);
+  if(!no||!amt){ showToast('Invoice number and amount required','error'); return; }
+  lead.billing = { invoiceNo:no, amount:amt, paymentStatus:document.getElementById('iStatus').value, paidOn:document.getElementById('iPaidOn').value, notes:document.getElementById('iNotes').value.trim() };
+  if(lead.billing.paymentStatus==='Paid') lead.status='Converted/Sold';
+  updateLead(lead);
+  showToast('Invoice saved for '+lead.name,'success');
+  document.getElementById('existingBadge').style.display='block';
+}
+</script>
+</body>
+</html>

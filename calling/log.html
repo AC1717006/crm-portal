@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Call Log — TravelCRM</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav id="topnav"><button class="hamburger" onclick="toggleSidebar()">☰</button></nav>
+<div class="app-layout">
+  <nav id="sidebar"></nav>
+  <main class="main-content">
+    <div class="page-header">
+      <h1>Call Log Entry</h1>
+      <p>Log a call for any lead</p>
+    </div>
+    <div class="card" style="max-width:600px">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Select Lead</label>
+          <select id="logLead" style="width:100%" onchange="prefillLead()"></select>
+        </div>
+        <div class="form-group">
+          <label>Call Status</label>
+          <select id="logStatus">
+            <option>Connected</option><option>Not Connected</option><option>Busy</option><option>No Answer</option><option>Callback</option>
+          </select>
+        </div>
+        <div class="form-group"><label>Date & Time</label><input id="logDate" type="datetime-local"></div>
+        <div class="form-group full"><label>Notes</label><textarea id="logNotes" rows="4" placeholder="Call notes, discussion summary…"></textarea></div>
+      </div>
+      <div class="btn-group" style="margin-top:8px">
+        <a href="index.html" class="btn btn-secondary">Cancel</a>
+        <button class="btn btn-primary" onclick="saveLog()">💾 Save Call Log</button>
+      </div>
+    </div>
+    <div class="card" style="margin-top:20px">
+      <div class="card-title">Recent Call Logs (All)</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Lead</th><th>Status</th><th>Date</th><th>Executive</th><th>Notes</th></tr></thead>
+          <tbody id="recentLogs"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="../assets/app.js"></script>
+<script>
+const session = requireAuth(['admin','crm','tl']);
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');}
+
+function buildDropdown(){
+  let leads = getLeads();
+  if(session && session.role==='crm') leads = leads.filter(l=>l.assigneeEmail===session.email);
+  document.getElementById('logLead').innerHTML = leads.map(l=>`<option value="${l.id}">${l.name} — ${l.phone}</option>`).join('');
+  document.getElementById('logDate').value = new Date().toISOString().slice(0,16);
+}
+
+function prefillLead(){}
+
+function saveLog(){
+  const id = document.getElementById('logLead').value;
+  const lead = getLeadById(id);
+  if(!lead){ showToast('Lead not found','error'); return; }
+  const cs = document.getElementById('logStatus').value;
+  if(!lead.callLogs) lead.callLogs=[];
+  lead.callLogs.push({ date:document.getElementById('logDate').value||now(), callStatus:cs, notes:document.getElementById('logNotes').value.trim(), executive:session?session.name:'' });
+  const map={'Connected':'Interested','Callback':'Callback','Not Connected':'No Response','No Answer':'No Response'};
+  if(map[cs]) lead.status=map[cs];
+  updateLead(lead); renderRecent();
+  document.getElementById('logNotes').value='';
+  showToast('Call logged for '+lead.name,'success');
+}
+
+function renderRecent(){
+  const allLogs = [];
+  getLeads().forEach(l=>(l.callLogs||[]).forEach(c=>allLogs.push({...c, leadName:l.name, leadId:l.id})));
+  allLogs.sort((a,b)=>new Date(b.date)-new Date(a.date));
+  document.getElementById('recentLogs').innerHTML = allLogs.slice(0,20).map(c=>`
+    <tr>
+      <td><a href="../leads/detail.html?id=${c.leadId}"><b>${c.leadName}</b></a></td>
+      <td>${callBadge(c.callStatus)}</td>
+      <td class="td-muted">${fmt(c.date)}</td>
+      <td>${c.executive||'—'}</td>
+      <td class="td-muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${c.notes||'—'}</td>
+    </tr>`).join('') || '<tr><td colspan="5" class="td-muted" style="text-align:center;padding:20px">No call logs yet</td></tr>';
+}
+
+buildDropdown(); renderRecent();
+</script>
+</body>
+</html>

@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Calling Dashboard — TravelCRM</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav id="topnav"><button class="hamburger" onclick="toggleSidebar()">☰</button></nav>
+<div class="app-layout">
+  <nav id="sidebar"></nav>
+  <main class="main-content">
+    <div class="page-header">
+      <h1>Calling Dashboard</h1>
+      <p id="dashSubtitle">Your assigned leads — quick call logging</p>
+    </div>
+    <div class="stats-grid" id="callStats"></div>
+    <div class="card">
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;flex-wrap:wrap;gap:10px">
+        <div class="card-title" style="margin:0">My Leads</div>
+        <div class="filters-bar" style="margin:0">
+          <input type="search" id="searchInput" placeholder="🔍 Search…" oninput="renderTable()">
+          <select id="filterStatus" onchange="renderTable()">
+            <option value="">All Statuses</option>
+            <option>New</option><option>Interested</option><option>Follow-up</option>
+            <option>Not Interested</option><option>Converted/Sold</option><option>Callback</option><option>No Response</option>
+          </select>
+        </div>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Phone</th><th>City</th><th>Status</th><th>Last Call</th><th>Actions</th></tr></thead>
+          <tbody id="leadsBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Quick Call Modal -->
+<div class="modal-overlay" id="callModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2>Log Call — <span id="modalLeadName"></span></h2>
+      <button class="modal-close" onclick="closeModal('callModal')">×</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Call Status</label>
+        <select id="cStatus">
+          <option>Connected</option><option>Not Connected</option><option>Busy</option><option>No Answer</option><option>Callback</option>
+        </select>
+      </div>
+      <div class="form-group"><label>Date & Time</label><input id="cDate" type="datetime-local"></div>
+      <div class="form-group full"><label>Notes</label><textarea id="cNotes" rows="3" placeholder="Call summary…"></textarea></div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('callModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="saveCall()">💾 Save Log</button>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/app.js"></script>
+<script>
+const session = requireAuth(['admin','crm','tl']);
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');}
+let currentLeadId = null;
+
+function getMyLeads(){
+  let leads = getLeads();
+  if(session && session.role==='crm') leads = leads.filter(l=>l.assigneeEmail===session.email);
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const st = document.getElementById('filterStatus').value;
+  if(q) leads = leads.filter(l=>[l.name,l.phone,l.city].some(v=>v&&v.toLowerCase().includes(q)));
+  if(st) leads = leads.filter(l=>l.status===st);
+  return leads;
+}
+
+function renderStats(){
+  const all = getLeads();
+  const mine = session.role==='crm' ? all.filter(l=>l.assigneeEmail===session.email) : all;
+  const todayCalls = mine.reduce((acc,l)=>{
+    const today = new Date().toDateString();
+    return acc + (l.callLogs||[]).filter(c=>new Date(c.date).toDateString()===today).length;
+  },0);
+  document.getElementById('callStats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">My Leads</div><div class="stat-value">${mine.length}</div></div>
+    <div class="stat-card yellow"><div class="stat-label">Follow-ups</div><div class="stat-value">${mine.filter(l=>l.status==='Follow-up').length}</div></div>
+    <div class="stat-card purple"><div class="stat-label">Callbacks</div><div class="stat-value">${mine.filter(l=>l.status==='Callback').length}</div></div>
+    <div class="stat-card green"><div class="stat-label">Today's Calls</div><div class="stat-value">${todayCalls}</div></div>
+    <div class="stat-card"><div class="stat-label">No Response</div><div class="stat-value">${mine.filter(l=>l.status==='No Response').length}</div></div>`;
+}
+
+function renderTable(){
+  const leads = getMyLeads();
+  document.getElementById('leadsBody').innerHTML = leads.map(l=>{
+    const lastCall = l.callLogs && l.callLogs.length ? l.callLogs[l.callLogs.length-1] : null;
+    return `<tr>
+      <td><a href="../leads/detail.html?id=${l.id}"><b>${l.name}</b></a></td>
+      <td><a href="tel:${l.phone}">${l.phone}</a></td>
+      <td>${l.city||'—'}</td>
+      <td>${statusBadge(l.status)}</td>
+      <td>${lastCall ? `${callBadge(lastCall.callStatus)} <span class="td-muted" style="font-size:0.78rem">${fmtDate(lastCall.date)}</span>` : '<span class="td-muted">No calls</span>'}</td>
+      <td>
+        <div class="btn-group">
+          <button class="btn btn-sm btn-primary" onclick="openCallModal('${l.id}','${l.name.replace(/'/g,"\\'")}')">📞 Log Call</button>
+          <a href="../leads/detail.html?id=${l.id}" class="btn btn-sm btn-secondary">View</a>
+        </div>
+      </td>
+    </tr>`;
+  }).join('') || '<tr><td colspan="6" style="text-align:center;padding:30px" class="td-muted">No leads assigned</td></tr>';
+}
+
+function openCallModal(id, name){
+  currentLeadId = id;
+  document.getElementById('modalLeadName').textContent = name;
+  document.getElementById('cDate').value = new Date().toISOString().slice(0,16);
+  document.getElementById('cNotes').value = '';
+  document.getElementById('cStatus').value = 'Connected';
+  openModal('callModal');
+}
+
+function saveCall(){
+  const lead = getLeadById(currentLeadId);
+  if(!lead) return;
+  const cs = document.getElementById('cStatus').value;
+  if(!lead.callLogs) lead.callLogs = [];
+  lead.callLogs.push({ date: document.getElementById('cDate').value||now(), callStatus: cs, notes: document.getElementById('cNotes').value.trim(), executive: session?session.name:'' });
+  const map = {'Connected':'Interested','Callback':'Callback','Not Connected':'No Response','No Answer':'No Response'};
+  if(map[cs]) lead.status = map[cs];
+  updateLead(lead); closeModal('callModal'); renderStats(); renderTable();
+  showToast('Call logged successfully','success');
+}
+
+renderStats(); renderTable();
+</script>
+</body>
+</html>

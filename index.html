@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>TravelCRM — Login</title>
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+<div class="login-page">
+  <div class="login-grid"></div>
+
+  <!-- Floating particles -->
+  <div class="lp-particles" aria-hidden="true">
+    <span class="lp-p" style="left:10%;top:20%;animation-delay:0s"></span>
+    <span class="lp-p" style="left:85%;top:15%;animation-delay:1.2s"></span>
+    <span class="lp-p" style="left:60%;top:70%;animation-delay:2.4s"></span>
+    <span class="lp-p" style="left:25%;top:80%;animation-delay:0.8s"></span>
+    <span class="lp-p lp-p--lg" style="left:75%;top:45%;animation-delay:1.8s"></span>
+    <span class="lp-p lp-p--lg" style="left:40%;top:10%;animation-delay:3s"></span>
+  </div>
+
+  <div class="login-card" id="loginCard">
+    <div class="login-logo">
+      <div class="logo-icon">✈️</div>
+      <h1>TravelCRM</h1>
+      <p>Travel Agency Management Portal</p>
+    </div>
+    <form class="login-form" id="loginForm" onsubmit="doLogin(event)">
+      <div class="form-group">
+        <label>Username</label>
+        <input type="text" id="username" placeholder="Enter your username" required autocomplete="username">
+      </div>
+      <div class="form-group">
+        <label>Password</label>
+        <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
+      </div>
+      <div class="form-group">
+        <label>Role</label>
+        <select id="roleSelect">
+          <option value="admin">Admin</option>
+          <option value="crm">CRM Executive</option>
+          <option value="tl">Team Leader</option>
+          <option value="accounts">Accounts Team</option>
+        </select>
+      </div>
+      <div id="loginError" class="login-error" style="display:none;"></div>
+      <button type="submit" class="login-btn">Sign In &rarr;</button>
+    </form>
+    <div class="login-hint">
+      <b>Demo Credentials</b><br>
+      admin / admin123 &nbsp;&bull;&nbsp; crm1 / crm123<br>
+      tl1 / tl123 &nbsp;&bull;&nbsp; accounts1 / acc123
+    </div>
+  </div>
+</div>
+
+<style>
+.login-error {
+  color: #fca5a5; font-size: 0.82rem; margin-top: -8px; margin-bottom: 4px;
+  background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25);
+  border-radius: 8px; padding: 8px 12px;
+}
+.lp-particles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.lp-p {
+  position: absolute; width: 4px; height: 4px; border-radius: 50%;
+  background: rgba(99,102,241,0.5);
+  box-shadow: 0 0 8px rgba(99,102,241,0.8);
+  animation: particleFloat 6s ease-in-out infinite alternate;
+}
+.lp-p--lg {
+  width: 6px; height: 6px;
+  background: rgba(34,211,238,0.4);
+  box-shadow: 0 0 12px rgba(34,211,238,0.7);
+  animation-duration: 8s;
+}
+@keyframes particleFloat {
+  0%   { transform: translateY(0) translateX(0) scale(1); opacity: 0.4; }
+  50%  { opacity: 1; }
+  100% { transform: translateY(-40px) translateX(20px) scale(1.5); opacity: 0.3; }
+}
+</style>
+
+<script src="assets/app.js"></script>
+<script>
+function doLogin(e) {
+  e.preventDefault();
+  seedIfNeeded();
+  const u = document.getElementById('username').value.trim();
+  const p = document.getElementById('password').value;
+  const r = document.getElementById('roleSelect').value;
+  const users = getUsers();
+  const match = users.find(x => x.username === u && x.password === p && x.role === r);
+  const err = document.getElementById('loginError');
+  if (!match) {
+    err.textContent = 'Invalid credentials or role mismatch.';
+    err.style.display = 'block';
+    return;
+  }
+  err.style.display = 'none';
+  setSession(match);
+  const redirects = { admin:'admin/index.html', crm:'leads/index.html', tl:'leads/index.html', accounts:'billing/index.html' };
+  window.location.href = redirects[match.role] || 'admin/index.html';
+}
+
+// 3D card tilt on mouse move
+const card = document.getElementById('loginCard');
+document.querySelector('.login-page').addEventListener('mousemove', function(e) {
+  const rect = card.getBoundingClientRect();
+  const cx = rect.left + rect.width / 2;
+  const cy = rect.top + rect.height / 2;
+  const dx = (e.clientX - cx) / (window.innerWidth / 2);
+  const dy = (e.clientY - cy) / (window.innerHeight / 2);
+  const rx = -dy * 7;
+  const ry = dx * 7;
+  card.style.transform = `perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg) translateZ(8px)`;
+  card.style.boxShadow = `
+    ${-ry * 3}px ${rx * 3}px 60px rgba(0,0,0,0.7),
+    0 0 80px rgba(99,102,241,${0.06 + Math.abs(dx) * 0.06}),
+    inset 0 1px 0 rgba(255,255,255,0.12)
+  `;
+});
+document.querySelector('.login-page').addEventListener('mouseleave', function() {
+  card.style.transform = '';
+  card.style.boxShadow = '';
+});
+
+// Auto-redirect if already logged in
+const s = getObj(KEYS.session);
+if (s && s.username) {
+  const redirects = { admin:'admin/index.html', crm:'leads/index.html', tl:'leads/index.html', accounts:'billing/index.html' };
+  window.location.href = redirects[s.role] || 'admin/index.html';
+}
+</script>
+</body>
+</html>

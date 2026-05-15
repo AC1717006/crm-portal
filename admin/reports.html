@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reports — TravelCRM</title>
+<link rel="stylesheet" href="../assets/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<nav id="topnav"><button class="hamburger" onclick="toggleSidebar()">☰</button></nav>
+<div class="app-layout">
+  <nav id="sidebar"></nav>
+  <main class="main-content">
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+      <div><h1>Reports & Analytics</h1><p>Comprehensive performance insights</p></div>
+      <button class="btn btn-secondary" onclick="exportLeadsCSV()">⬇ Export Leads CSV</button>
+    </div>
+    <div class="stats-grid" id="statsGrid"></div>
+    <div class="chart-grid">
+      <div class="chart-card"><h3>Leads by Status</h3><canvas id="statusChart" height="220"></canvas></div>
+      <div class="chart-card"><h3>Source Breakdown</h3><canvas id="sourceChart" height="220"></canvas></div>
+      <div class="chart-card"><h3>Executive Performance</h3><canvas id="execChart" height="220"></canvas></div>
+      <div class="chart-card"><h3>Weekly Trend (7 Days)</h3><canvas id="trendChart" height="220"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Executive Performance Table</div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Executive</th><th>Total Leads</th><th>Converted</th><th>Follow-ups</th><th>Not Interested</th><th>Conv. Rate</th></tr></thead>
+          <tbody id="execTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="../assets/app.js"></script>
+<script>
+requireAuth(['admin','tl']);
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');}
+
+const leads = getLeads();
+const statuses = ['New','Interested','Follow-up','Not Interested','Converted/Sold','Callback','No Response'];
+const statusCounts = statuses.map(s=>leads.filter(l=>l.status===s).length);
+const metaCount = leads.filter(l=>l.source==='Meta Ads').length;
+const manualCount = leads.filter(l=>l.source==='Manual').length;
+const converted = leads.filter(l=>l.status==='Converted/Sold').length;
+
+document.getElementById('statsGrid').innerHTML = `
+  <div class="stat-card"><div class="stat-label">Total Leads</div><div class="stat-value">${leads.length}</div></div>
+  <div class="stat-card green"><div class="stat-label">Converted</div><div class="stat-value">${converted}</div></div>
+  <div class="stat-card"><div class="stat-label">Meta Ads</div><div class="stat-value">${metaCount}</div></div>
+  <div class="stat-card teal"><div class="stat-label">Manual Entry</div><div class="stat-value">${manualCount}</div></div>
+  <div class="stat-card yellow"><div class="stat-label">Follow-up Pending</div><div class="stat-value">${leads.filter(l=>l.status==='Follow-up').length}</div></div>
+  <div class="stat-card red"><div class="stat-label">Not Interested</div><div class="stat-value">${leads.filter(l=>l.status==='Not Interested').length}</div></div>
+  <div class="stat-card purple"><div class="stat-label">Callback</div><div class="stat-value">${leads.filter(l=>l.status==='Callback').length}</div></div>
+  <div class="stat-card"><div class="stat-label">Conv. Rate</div><div class="stat-value">${leads.length?Math.round(converted/leads.length*100):0}%</div></div>`;
+
+new Chart(document.getElementById('statusChart'),{type:'bar',data:{labels:statuses,datasets:[{label:'Leads',data:statusCounts,backgroundColor:['#dbeafe','#ccfbf1','#fef3c7','#fee2e2','#d1fae5','#ede9fe','#f1f5f9']}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+new Chart(document.getElementById('sourceChart'),{type:'doughnut',data:{labels:['Meta Ads','Manual'],datasets:[{data:[metaCount,manualCount],backgroundColor:['#f9a8d4','#cbd5e1']}]},options:{plugins:{legend:{position:'bottom'}}}});
+
+const execs = getCRMUsers();
+new Chart(document.getElementById('execChart'),{type:'bar',data:{labels:execs.map(e=>e.name),datasets:[{label:'Total',data:execs.map(e=>leads.filter(l=>l.assigneeEmail===e.email).length),backgroundColor:'#a5b4fc'},{label:'Converted',data:execs.map(e=>leads.filter(l=>l.assigneeEmail===e.email&&l.status==='Converted/Sold').length),backgroundColor:'#6ee7b7'}]},options:{scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+
+const days=Array.from({length:7},(_,i)=>{const d=new Date();d.setDate(d.getDate()-6+i);return d;});
+new Chart(document.getElementById('trendChart'),{type:'line',data:{labels:days.map(d=>d.toLocaleDateString('en',{weekday:'short',day:'numeric'})),datasets:[{label:'Leads',data:days.map(d=>leads.filter(l=>l.createdAt&&new Date(l.createdAt).toDateString()===d.toDateString()).length),borderColor:'#4f6ef7',backgroundColor:'rgba(79,110,247,0.08)',fill:true,tension:0.4,pointRadius:4}]},options:{plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+
+document.getElementById('execTableBody').innerHTML = execs.map(e=>{
+  const myLeads=leads.filter(l=>l.assigneeEmail===e.email);
+  const conv=myLeads.filter(l=>l.status==='Converted/Sold').length;
+  const rate=myLeads.length?Math.round(conv/myLeads.length*100):0;
+  return `<tr>
+    <td><b>${e.name}</b></td>
+    <td>${myLeads.length}</td>
+    <td><span class="badge badge-green">${conv}</span></td>
+    <td><span class="badge badge-yellow">${myLeads.filter(l=>l.status==='Follow-up').length}</span></td>
+    <td><span class="badge badge-red">${myLeads.filter(l=>l.status==='Not Interested').length}</span></td>
+    <td><b>${rate}%</b></td>
+  </tr>`;
+}).join('') || '<tr><td colspan="6" class="td-muted" style="text-align:center">No executives found</td></tr>';
+
+function exportLeadsCSV(){
+  exportCSV(leads.map(l=>({
+    Name:l.name, Phone:l.phone, Email:l.email, City:l.city, Agency:l.agencyName,
+    Source:l.source, Status:l.status, Assignee:l.assigneeName, Created:fmtDate(l.createdAt)
+  })),'leads_report.csv');
+}
+</script>
+</body>
+</html>

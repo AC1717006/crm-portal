@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Leads — TravelCRM</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav id="topnav"><button class="hamburger" onclick="toggleSidebar()">☰</button></nav>
+<div class="app-layout">
+  <nav id="sidebar"></nav>
+  <main class="main-content">
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+      <div><h1>Leads</h1><p>Manage and track all your leads</p></div>
+      <div class="btn-group">
+        <button class="btn btn-secondary" onclick="openModal('importModal')">⬆ Import</button>
+        <button class="btn btn-secondary" onclick="doExport()">⬇ Export CSV</button>
+        <a href="add.html" class="btn btn-primary">+ Add Lead</a>
+      </div>
+    </div>
+    <div class="stats-grid" id="statsRow"></div>
+    <div class="card">
+      <div class="filters-bar">
+        <input type="search" id="searchInput" placeholder="🔍 Search name, phone, city, agency…" oninput="renderTable()">
+        <select id="filterStatus" onchange="renderTable()">
+          <option value="">All Statuses</option>
+          <option>New</option><option>Interested</option><option>Follow-up</option>
+          <option>Not Interested</option><option>Converted/Sold</option><option>Callback</option><option>No Response</option>
+        </select>
+        <select id="filterSource" onchange="renderTable()">
+          <option value="">All Sources</option>
+          <option>Meta Ads</option><option>Manual</option>
+        </select>
+        <select id="filterAssignee" onchange="renderTable()"></select>
+        <select id="filterCity" onchange="renderTable()"><option value="">All Cities</option></select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th><input type="checkbox" id="selectAll" onchange="toggleAll(this)"></th>
+              <th>Name</th><th>Phone</th><th>City</th><th>Agency</th>
+              <th>Source</th><th>Status</th><th>Assignee</th><th>Created</th><th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="leadsBody"></tbody>
+        </table>
+      </div>
+      <div id="bulkBar" style="display:none;margin-top:12px" class="btn-group">
+        <span id="selectedCount" style="font-size:0.9rem;color:var(--text-muted)"></span>
+        <select id="bulkAssignee" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem"></select>
+        <button class="btn btn-primary btn-sm" onclick="bulkAssign()">Assign Selected</button>
+        <select id="bulkStatus" style="padding:7px 10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.88rem">
+          <option value="">Change Status…</option>
+          <option>New</option><option>Interested</option><option>Follow-up</option>
+          <option>Not Interested</option><option>Converted/Sold</option><option>Callback</option><option>No Response</option>
+        </select>
+        <button class="btn btn-secondary btn-sm" onclick="bulkStatus()">Update Status</button>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Import Modal -->
+<div class="modal-overlay" id="importModal">
+  <div class="modal modal-lg">
+    <div class="modal-header">
+      <h2>Import Leads (Tab-separated)</h2>
+      <button class="modal-close" onclick="closeModal('importModal')">×</button>
+    </div>
+    <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:12px">Paste tab-separated data from Meta Ads sheet. Columns: Name, Phone, Email, AltPhone, City, DataCity, Designation, AgencyName</p>
+    <textarea id="importData" rows="10" style="width:100%;padding:10px;border:1.5px solid var(--border);border-radius:8px;font-size:0.85rem;font-family:monospace" placeholder="Sunita Mehta&#9;9876543210&#9;sunita@gmail.com&#9;&#9;Mumbai&#9;Mumbai&#9;Manager&#9;TravelPro"></textarea>
+    <div class="modal-footer">
+      <button class="btn btn-secondary" onclick="closeModal('importModal')">Cancel</button>
+      <button class="btn btn-primary" onclick="importLeads()">Import Leads</button>
+    </div>
+  </div>
+</div>
+
+<script src="../assets/app.js"></script>
+<script>
+const session = requireAuth(['admin','crm','tl','accounts']);
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');}
+
+function buildFilters(){
+  const leads = getLeads();
+  const execs = getCRMUsers();
+  const cities = [...new Set(leads.map(l=>l.city).filter(Boolean))].sort();
+  const fa = document.getElementById('filterAssignee');
+  fa.innerHTML = '<option value="">All Assignees</option>' + execs.map(e=>`<option value="${e.email}">${e.name}</option>`).join('');
+  const fc = document.getElementById('filterCity');
+  fc.innerHTML = '<option value="">All Cities</option>' + cities.map(c=>`<option>${c}</option>`).join('');
+  // bulk assignee
+  const ba = document.getElementById('bulkAssignee');
+  ba.innerHTML = '<option value="">Assign to…</option>' + execs.map(e=>`<option value="${e.email}|${e.name}">${e.name}</option>`).join('');
+}
+
+function getFiltered(){
+  let leads = getLeads();
+  const s = getSession();
+  if(s && s.role==='crm') leads = leads.filter(l=>l.assigneeEmail===s.email);
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const st = document.getElementById('filterStatus').value;
+  const src = document.getElementById('filterSource').value;
+  const asgn = document.getElementById('filterAssignee').value;
+  const city = document.getElementById('filterCity').value;
+  if(q) leads = leads.filter(l=>[l.name,l.phone,l.city,l.agencyName].some(v=>v&&v.toLowerCase().includes(q)));
+  if(st) leads = leads.filter(l=>l.status===st);
+  if(src) leads = leads.filter(l=>l.source===src);
+  if(asgn) leads = leads.filter(l=>l.assigneeEmail===asgn);
+  if(city) leads = leads.filter(l=>l.city===city);
+  return leads;
+}
+
+function renderTable(){
+  const leads = getFiltered();
+  const all = getLeads();
+  document.getElementById('statsRow').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value">${all.length}</div></div>
+    <div class="stat-card"><div class="stat-label">Meta Ads</div><div class="stat-value">${all.filter(l=>l.source==='Meta Ads').length}</div></div>
+    <div class="stat-card green"><div class="stat-label">Converted</div><div class="stat-value">${all.filter(l=>l.status==='Converted/Sold').length}</div></div>
+    <div class="stat-card yellow"><div class="stat-label">Follow-up</div><div class="stat-value">${all.filter(l=>l.status==='Follow-up').length}</div></div>
+    <div class="stat-card"><div class="stat-label">No Response</div><div class="stat-value">${all.filter(l=>l.status==='No Response').length}</div></div>`;
+  document.getElementById('leadsBody').innerHTML = leads.map(l=>`
+    <tr>
+      <td><input type="checkbox" class="row-check" value="${l.id}" onchange="updateBulkBar()"></td>
+      <td><a href="detail.html?id=${l.id}"><b>${l.name}</b></a></td>
+      <td>${l.phone}</td>
+      <td>${l.city||'—'}</td>
+      <td class="td-muted">${l.agencyName||'—'}</td>
+      <td>${sourceBadge(l.source)}</td>
+      <td>${statusBadge(l.status)}</td>
+      <td>${l.assigneeName||'<span class="td-muted">Unassigned</span>'}</td>
+      <td class="td-muted">${fmtDate(l.createdAt)}</td>
+      <td>
+        <div class="btn-group">
+          <a href="detail.html?id=${l.id}" class="btn btn-sm btn-secondary">View</a>
+          <button class="btn btn-sm btn-danger" onclick="deleteLead('${l.id}')">🗑</button>
+        </div>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="10" style="text-align:center;padding:30px" class="td-muted">No leads found</td></tr>';
+}
+
+function toggleAll(cb){
+  document.querySelectorAll('.row-check').forEach(c=>c.checked=cb.checked);
+  updateBulkBar();
+}
+function updateBulkBar(){
+  const checked = [...document.querySelectorAll('.row-check:checked')];
+  const bar = document.getElementById('bulkBar');
+  bar.style.display = checked.length ? 'flex' : 'none';
+  document.getElementById('selectedCount').textContent = `${checked.length} selected`;
+}
+function getCheckedIds(){ return [...document.querySelectorAll('.row-check:checked')].map(c=>c.value); }
+
+function bulkAssign(){
+  const val = document.getElementById('bulkAssignee').value;
+  if(!val) return showToast('Select an executive','error');
+  const [email,name] = val.split('|');
+  const ids = getCheckedIds();
+  const leads = getLeads();
+  ids.forEach(id=>{ const l=leads.find(x=>x.id===id); if(l){l.assigneeEmail=email;l.assigneeName=name;l.assigned=true;} });
+  saveLeads(leads); renderTable(); showToast(`${ids.length} leads assigned to ${name}`,'success');
+}
+function bulkStatus(){
+  const st = document.getElementById('bulkStatus').value;
+  if(!st) return showToast('Select a status','error');
+  const ids = getCheckedIds();
+  const leads = getLeads();
+  ids.forEach(id=>{ const l=leads.find(x=>x.id===id); if(l) l.status=st; });
+  saveLeads(leads); renderTable(); showToast(`${ids.length} leads updated`,'success');
+}
+
+function deleteLead(id){
+  if(!confirm('Delete this lead?')) return;
+  saveLeads(getLeads().filter(l=>l.id!==id));
+  renderTable(); showToast('Lead deleted','success');
+}
+
+function importLeads(){
+  const raw = document.getElementById('importData').value.trim();
+  if(!raw) return showToast('No data to import','error');
+  const rows = raw.split('\n').filter(r=>r.trim());
+  const leads = getLeads();
+  let count = 0;
+  rows.forEach(row=>{
+    const cols = row.split('\t');
+    if(!cols[0]) return;
+    leads.unshift({
+      id:uid(), createdAt:now(), source:'Meta Ads', status:'New',
+      assigneeName:'', assigneeEmail:'', assigned:false,
+      name:cols[0]||'', phone:cols[1]||'', email:cols[2]||'',
+      altPhone:cols[3]||'', city:cols[4]||'', dataCity:cols[5]||'',
+      designation:cols[6]||'', agencyName:cols[7]||'', remark:'',
+      callLogs:[], followUps:[], billing:{}
+    }); count++;
+  });
+  saveLeads(leads); closeModal('importModal'); renderTable();
+  showToast(`${count} leads imported`,'success');
+}
+
+function doExport(){
+  const leads = getFiltered();
+  exportCSV(leads.map(l=>({Name:l.name,Phone:l.phone,Email:l.email,City:l.city,Agency:l.agencyName,Source:l.source,Status:l.status,Assignee:l.assigneeName,Created:fmtDate(l.createdAt)})),'leads_export.csv');
+}
+
+buildFilters(); renderTable();
+</script>
+</body>
+</html>

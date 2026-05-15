@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>User Management — TravelCRM</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav id="topnav"><button class="hamburger" onclick="toggleSidebar()">☰</button></nav>
+<div class="app-layout">
+  <nav id="sidebar"></nav>
+  <main class="main-content">
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+      <div><h1>User Management</h1><p>Add, edit or remove CRM team members</p></div>
+      <button class="btn btn-primary" onclick="openModal('userModal');resetForm()">+ Add User</button>
+    </div>
+    <div class="card">
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Name</th><th>Username</th><th>Email</th><th>Role</th><th>Leads Assigned</th><th>Actions</th></tr></thead>
+          <tbody id="userTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+
+<!-- Modal -->
+<div class="modal-overlay" id="userModal">
+  <div class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">Add User</h2>
+      <button class="modal-close" onclick="closeModal('userModal')">×</button>
+    </div>
+    <form id="userForm" onsubmit="saveUser(event)">
+      <div class="form-grid">
+        <div class="form-group"><label>Full Name</label><input id="uName" required placeholder="Full name"></div>
+        <div class="form-group"><label>Username</label><input id="uUsername" required placeholder="Login username"></div>
+        <div class="form-group"><label>Email</label><input id="uEmail" type="email" required placeholder="Email"></div>
+        <div class="form-group"><label>Password</label><input id="uPassword" type="password" placeholder="Leave blank to keep existing"></div>
+        <div class="form-group"><label>Role</label>
+          <select id="uRole">
+            <option value="crm">CRM Executive</option>
+            <option value="tl">Team Leader</option>
+            <option value="accounts">Accounts Team</option>
+            <option value="admin">Admin</option>
+          </select>
+        </div>
+      </div>
+      <input type="hidden" id="uId">
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" onclick="closeModal('userModal')">Cancel</button>
+        <button type="submit" class="btn btn-primary">Save User</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script src="../assets/app.js"></script>
+<script>
+requireAuth(['admin']);
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');}
+
+function renderTable(){
+  const users = getUsers();
+  const leads = getLeads();
+  document.getElementById('userTableBody').innerHTML = users.map(u=>`
+    <tr>
+      <td><b>${u.name}</b></td>
+      <td><code style="background:#f1f5f9;padding:2px 6px;border-radius:4px">${u.username}</code></td>
+      <td>${u.email}</td>
+      <td><span class="badge badge-blue">${ROLES[u.role]||u.role}</span></td>
+      <td>${leads.filter(l=>l.assigneeEmail===u.email).length}</td>
+      <td>
+        <div class="btn-group">
+          <button class="btn btn-sm btn-secondary" onclick="editUser('${u.id}')">✏️ Edit</button>
+          ${u.role!=='admin'?`<button class="btn btn-sm btn-danger" onclick="deleteUser('${u.id}')">🗑</button>`:''}
+        </div>
+      </td>
+    </tr>`).join('');
+}
+
+function resetForm(){
+  document.getElementById('uId').value='';
+  document.getElementById('uName').value='';
+  document.getElementById('uUsername').value='';
+  document.getElementById('uEmail').value='';
+  document.getElementById('uPassword').value='';
+  document.getElementById('uRole').value='crm';
+  document.getElementById('modalTitle').textContent='Add User';
+}
+
+function editUser(id){
+  const u = getUsers().find(x=>x.id===id);
+  if(!u) return;
+  document.getElementById('uId').value=u.id;
+  document.getElementById('uName').value=u.name;
+  document.getElementById('uUsername').value=u.username;
+  document.getElementById('uEmail').value=u.email;
+  document.getElementById('uPassword').value='';
+  document.getElementById('uRole').value=u.role;
+  document.getElementById('modalTitle').textContent='Edit User';
+  openModal('userModal');
+}
+
+function saveUser(e){
+  e.preventDefault();
+  const id = document.getElementById('uId').value;
+  const users = getUsers();
+  const name = document.getElementById('uName').value.trim();
+  const username = document.getElementById('uUsername').value.trim();
+  const email = document.getElementById('uEmail').value.trim();
+  const password = document.getElementById('uPassword').value;
+  const role = document.getElementById('uRole').value;
+  if(id){
+    const idx = users.findIndex(u=>u.id===id);
+    if(idx!==-1){
+      users[idx].name=name; users[idx].username=username;
+      users[idx].email=email; users[idx].role=role;
+      if(password) users[idx].password=password;
+    }
+    showToast('User updated successfully','success');
+  } else {
+    if(users.find(u=>u.username===username)){showToast('Username already exists','error');return;}
+    users.push({id:uid(),name,username,email,password:password||'crm123',role});
+    showToast('User added successfully','success');
+  }
+  saveUsers(users); closeModal('userModal'); renderTable();
+}
+
+function deleteUser(id){
+  if(!confirm('Delete this user?')) return;
+  const users = getUsers().filter(u=>u.id!==id);
+  saveUsers(users); renderTable();
+  showToast('User deleted','success');
+}
+
+renderTable();
+</script>
+</body>
+</html>

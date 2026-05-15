@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Payment History — TravelCRM</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav id="topnav"><button class="hamburger" onclick="toggleSidebar()">☰</button></nav>
+<div class="app-layout">
+  <nav id="sidebar"></nav>
+  <main class="main-content">
+    <div class="page-header" style="display:flex;justify-content:space-between;align-items:flex-start;flex-wrap:wrap;gap:12px">
+      <div><h1>Payment History</h1><p>Full payment status and history across all leads</p></div>
+      <button class="btn btn-secondary" onclick="exportPayments()">⬇ Export CSV</button>
+    </div>
+    <div class="stats-grid" id="payStats"></div>
+    <div class="card">
+      <div class="filters-bar">
+        <input type="search" id="searchInput" placeholder="🔍 Search…" oninput="render()">
+        <select id="filterStatus" onchange="render()">
+          <option value="">All Statuses</option>
+          <option>Paid</option><option>Partial</option><option>Pending</option><option>Overdue</option>
+        </select>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Lead</th><th>Agency</th><th>Invoice</th><th>Amount</th><th>Status</th><th>Paid On</th><th>Update Status</th></tr></thead>
+          <tbody id="payBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="../assets/app.js"></script>
+<script>
+requireAuth(['admin','accounts']);
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');}
+
+function renderStats(){
+  const leads = getLeads().filter(l=>l.billing&&l.billing.invoiceNo);
+  const total = leads.reduce((a,l)=>a+(Number(l.billing.amount)||0),0);
+  const paid = leads.filter(l=>l.billing.paymentStatus==='Paid').reduce((a,l)=>a+(Number(l.billing.amount)||0),0);
+  const partial = leads.filter(l=>l.billing.paymentStatus==='Partial').reduce((a,l)=>a+(Number(l.billing.amount)||0),0);
+  document.getElementById('payStats').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total Invoiced</div><div class="stat-value">₹${total.toLocaleString()}</div></div>
+    <div class="stat-card green"><div class="stat-label">Collected</div><div class="stat-value">₹${paid.toLocaleString()}</div></div>
+    <div class="stat-card yellow"><div class="stat-label">Partial</div><div class="stat-value">₹${partial.toLocaleString()}</div></div>
+    <div class="stat-card red"><div class="stat-label">Outstanding</div><div class="stat-value">₹${(total-paid-partial).toLocaleString()}</div></div>`;
+}
+
+function render(){
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  const st = document.getElementById('filterStatus').value;
+  let rows = getLeads().filter(l=>l.billing&&l.billing.invoiceNo);
+  if(q) rows = rows.filter(l=>[l.name,l.agencyName,l.billing.invoiceNo].some(v=>v&&v.toLowerCase().includes(q)));
+  if(st) rows = rows.filter(l=>l.billing.paymentStatus===st);
+  document.getElementById('payBody').innerHTML = rows.map(l=>`
+    <tr>
+      <td><a href="../leads/detail.html?id=${l.id}"><b>${l.name}</b></a></td>
+      <td class="td-muted">${l.agencyName||'—'}</td>
+      <td><code style="background:#f1f5f9;padding:2px 6px;border-radius:4px">${l.billing.invoiceNo}</code></td>
+      <td><b>₹${(Number(l.billing.amount)||0).toLocaleString()}</b></td>
+      <td>${payBadge(l.billing.paymentStatus)}</td>
+      <td class="td-muted">${l.billing.paidOn||'—'}</td>
+      <td>
+        <select onchange="updatePayStatus('${l.id}',this.value)" style="padding:5px 8px;border:1.5px solid var(--border);border-radius:6px;font-size:0.82rem">
+          ${['Pending','Partial','Paid','Overdue'].map(s=>`<option ${l.billing.paymentStatus===s?'selected':''}>${s}</option>`).join('')}
+        </select>
+      </td>
+    </tr>`).join('') || '<tr><td colspan="7" style="text-align:center;padding:30px" class="td-muted">No payments found</td></tr>';
+}
+
+function updatePayStatus(id, status){
+  const lead = getLeadById(id);
+  if(!lead) return;
+  lead.billing.paymentStatus = status;
+  if(status==='Paid') { lead.billing.paidOn = new Date().toISOString().slice(0,10); lead.status='Converted/Sold'; }
+  updateLead(lead); renderStats(); render();
+  showToast('Payment status updated','success');
+}
+
+function exportPayments(){
+  const rows = getLeads().filter(l=>l.billing&&l.billing.invoiceNo);
+  exportCSV(rows.map(l=>({Lead:l.name,Agency:l.agencyName,Invoice:l.billing.invoiceNo,Amount:l.billing.amount,Status:l.billing.paymentStatus,PaidOn:l.billing.paidOn})),'payments_export.csv');
+}
+
+renderStats(); render();
+</script>
+</body>
+</html>

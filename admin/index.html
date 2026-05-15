@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin Dashboard — TravelCRM</title>
+<link rel="stylesheet" href="../assets/style.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+<nav id="topnav"><button class="hamburger" onclick="toggleSidebar()">☰</button></nav>
+<div class="app-layout">
+  <nav id="sidebar"></nav>
+  <main class="main-content">
+    <div class="page-header">
+      <h1>Admin Dashboard</h1>
+      <p>Overview of all leads, team performance and activity</p>
+    </div>
+    <div class="stats-grid" id="statsGrid"></div>
+    <div class="chart-grid">
+      <div class="chart-card"><h3>Leads by Status</h3><canvas id="statusChart" height="200"></canvas></div>
+      <div class="chart-card"><h3>Source Split</h3><canvas id="sourceChart" height="200"></canvas></div>
+      <div class="chart-card"><h3>Executive Performance</h3><canvas id="execChart" height="200"></canvas></div>
+      <div class="chart-card"><h3>Leads Added (Last 7 Days)</h3><canvas id="trendChart" height="200"></canvas></div>
+    </div>
+    <div class="card">
+      <div class="card-title">Recent Leads</div>
+      <div class="table-wrap">
+        <table id="recentTable">
+          <thead><tr><th>Name</th><th>Phone</th><th>Source</th><th>Status</th><th>Assignee</th><th>Created</th></tr></thead>
+          <tbody id="recentBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="../assets/app.js"></script>
+<script>
+const session = requireAuth(['admin']);
+if (session) {
+  const leads = getLeads();
+  const statuses = ['New','Interested','Follow-up','Not Interested','Converted/Sold','Callback','No Response'];
+  const statusCounts = statuses.map(s => leads.filter(l=>l.status===s).length);
+  const metaCount = leads.filter(l=>l.source==='Meta Ads').length;
+  const manualCount = leads.filter(l=>l.source==='Manual').length;
+  const converted = leads.filter(l=>l.status==='Converted/Sold').length;
+  const pending = leads.filter(l=>l.status==='Follow-up').length;
+
+  document.getElementById('statsGrid').innerHTML = `
+    <div class="stat-card"><div class="stat-label">Total Leads</div><div class="stat-value">${leads.length}</div></div>
+    <div class="stat-card green"><div class="stat-label">Converted</div><div class="stat-value">${converted}</div></div>
+    <div class="stat-card yellow"><div class="stat-label">Follow-ups</div><div class="stat-value">${pending}</div></div>
+    <div class="stat-card"><div class="stat-label">Meta Ads</div><div class="stat-value">${metaCount}</div></div>
+    <div class="stat-card teal"><div class="stat-label">Manual</div><div class="stat-value">${manualCount}</div></div>
+    <div class="stat-card red"><div class="stat-label">Not Interested</div><div class="stat-value">${leads.filter(l=>l.status==='Not Interested').length}</div></div>
+    <div class="stat-card purple"><div class="stat-label">No Response</div><div class="stat-value">${leads.filter(l=>l.status==='No Response').length}</div></div>
+    <div class="stat-card"><div class="stat-label">CRM Users</div><div class="stat-value">${getCRMUsers().length}</div></div>`;
+
+  // Status chart
+  new Chart(document.getElementById('statusChart'), {
+    type: 'bar',
+    data: { labels: statuses, datasets: [{ label: 'Leads', data: statusCounts, backgroundColor: ['#dbeafe','#ccfbf1','#fef3c7','#fee2e2','#d1fae5','#ede9fe','#f1f5f9'] }] },
+    options: { plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{stepSize:1}}} }
+  });
+
+  // Source chart
+  new Chart(document.getElementById('sourceChart'), {
+    type: 'doughnut',
+    data: { labels: ['Meta Ads','Manual'], datasets: [{ data: [metaCount, manualCount], backgroundColor: ['#f9a8d4','#cbd5e1'] }] },
+    options: { plugins:{legend:{position:'bottom'}} }
+  });
+
+  // Executive performance
+  const execs = getCRMUsers();
+  const execLabels = execs.map(e => e.name);
+  const execCounts = execs.map(e => leads.filter(l => l.assigneeEmail === e.email).length);
+  new Chart(document.getElementById('execChart'), {
+    type: 'bar',
+    data: { labels: execLabels, datasets: [{ label: 'Assigned Leads', data: execCounts, backgroundColor: '#a5b4fc' }] },
+    options: { plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{stepSize:1}}} }
+  });
+
+  // Trend: last 7 days
+  const days = Array.from({length:7},(_,i)=>{ const d=new Date(); d.setDate(d.getDate()-6+i); return d; });
+  const dayLabels = days.map(d=>d.toLocaleDateString('en',{weekday:'short',month:'numeric',day:'numeric'}));
+  const dayCounts = days.map(d => leads.filter(l => l.createdAt && new Date(l.createdAt).toDateString()===d.toDateString()).length);
+  new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: { labels: dayLabels, datasets: [{ label: 'Leads', data: dayCounts, borderColor:'#4f6ef7', backgroundColor:'rgba(79,110,247,0.08)', fill:true, tension:0.4, pointRadius:4 }] },
+    options: { plugins:{legend:{display:false}}, scales:{y:{beginAtZero:true,ticks:{stepSize:1}}} }
+  });
+
+  // Recent leads
+  const recent = [...leads].sort((a,b)=>new Date(b.createdAt)-new Date(a.createdAt)).slice(0,8);
+  document.getElementById('recentBody').innerHTML = recent.map(l=>`
+    <tr>
+      <td><a href="../leads/detail.html?id=${l.id}">${l.name}</a></td>
+      <td>${l.phone}</td>
+      <td>${sourceBadge(l.source)}</td>
+      <td>${statusBadge(l.status)}</td>
+      <td>${l.assigneeName||'<span class="td-muted">Unassigned</span>'}</td>
+      <td class="td-muted">${fmtDate(l.createdAt)}</td>
+    </tr>`).join('') || '<tr><td colspan="6" class="td-muted" style="text-align:center">No leads found</td></tr>';
+}
+function toggleSidebar() { document.getElementById('sidebar').classList.toggle('open'); }
+</script>
+</body>
+</html>

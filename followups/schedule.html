@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Schedule Follow-up — TravelCRM</title>
+<link rel="stylesheet" href="../assets/style.css">
+</head>
+<body>
+<nav id="topnav"><button class="hamburger" onclick="toggleSidebar()">☰</button></nav>
+<div class="app-layout">
+  <nav id="sidebar"></nav>
+  <main class="main-content">
+    <div class="page-header">
+      <h1>Schedule Follow-up</h1>
+      <p>Set a new follow-up for a lead</p>
+    </div>
+    <div class="card" style="max-width:600px">
+      <div class="form-grid">
+        <div class="form-group full">
+          <label>Select Lead *</label>
+          <select id="fLead" style="width:100%"></select>
+        </div>
+        <div class="form-group"><label>Date *</label><input id="fDate" type="date"></div>
+        <div class="form-group"><label>Time</label><input id="fTime" type="time" value="10:00"></div>
+        <div class="form-group full"><label>Note / Agenda</label><textarea id="fNote" rows="3" placeholder="What to discuss on this follow-up…"></textarea></div>
+      </div>
+      <div class="btn-group" style="margin-top:8px">
+        <a href="index.html" class="btn btn-secondary">Cancel</a>
+        <button class="btn btn-primary" onclick="schedule()">📅 Schedule Follow-up</button>
+      </div>
+    </div>
+  </main>
+</div>
+<script src="../assets/app.js"></script>
+<script>
+const session = requireAuth(['admin','crm','tl']);
+function toggleSidebar(){document.getElementById('sidebar').classList.toggle('open');}
+
+let leads = getLeads();
+if(session && session.role==='crm') leads = leads.filter(l=>l.assigneeEmail===session.email);
+document.getElementById('fLead').innerHTML = leads.map(l=>`<option value="${l.id}">${l.name} — ${l.phone}</option>`).join('');
+document.getElementById('fDate').value = new Date().toISOString().slice(0,10);
+
+// Pre-select from query param
+const params = new URLSearchParams(location.search);
+const preId = params.get('id');
+if(preId) document.getElementById('fLead').value = preId;
+
+function schedule(){
+  const id = document.getElementById('fLead').value;
+  const d = document.getElementById('fDate').value;
+  if(!id||!d){ showToast('Select a lead and date','error'); return; }
+  const lead = getLeadById(id);
+  if(!lead) return;
+  if(!lead.followUps) lead.followUps=[];
+  lead.followUps.push({ scheduledDate:d, scheduledTime:document.getElementById('fTime').value, note:document.getElementById('fNote').value.trim(), completedAt:null, result:null });
+  lead.status='Follow-up';
+  updateLead(lead);
+  showToast('Follow-up scheduled for '+lead.name,'success');
+  setTimeout(()=>window.location.href='index.html',800);
+}
+</script>
+</body>
+</html>
