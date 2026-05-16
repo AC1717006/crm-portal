@@ -3,39 +3,392 @@
 <head>
 <meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>TravelCRM — Login</title>
+
+<!-- Google Fonts -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700;800&family=DM+Sans:wght@400;500&family=Playfair+Display:ital@1&display=swap" rel="stylesheet">
+
+<!-- Shared CRM styles (overridden below for login page) -->
 <link rel="stylesheet" href="assets/style.css">
+
+<style>
+/* ── FULL RESET FOR LOGIN PAGE ─────────────────────────────── */
+:root {
+  --blue:    #1E88E5;
+  --gold:    #D4AF37;
+  --white:   #FFFFFF;
+  --bg:      #F0F7FF;
+  --dark:    #1F2937;
+  --gray:    #6B7280;
+  --border:  #E5E7EB;
+  --grad:    linear-gradient(135deg, #1E88E5 0%, #D4AF37 100%);
+  --shadow:  0 20px 60px rgba(30,136,229,.15);
+}
+
+/* Override dark theme body for login */
+body {
+  margin: 0; padding: 0;
+  background: linear-gradient(135deg, #F0F7FF 0%, #E8F4FD 50%, #FFF8E7 100%) !important;
+  font-family: 'DM Sans', -apple-system, sans-serif;
+  min-height: 100vh;
+}
+
+/* ── FULL-PAGE WRAPPER ──────────────────────────────────────── */
+.login-page {
+  min-height: 100vh !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  flex-direction: column !important;
+  background: transparent !important;
+  backdrop-filter: none !important;
+  position: relative !important;
+  overflow: hidden !important;
+  padding: 40px 20px !important;
+}
+
+/* ── BACKGROUND: SVG DOTS PATTERN ──────────────────────────── */
+.lp-pattern {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* ── BACKGROUND: FLOATING BLOBS ─────────────────────────────── */
+.lp-blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(80px);
+  pointer-events: none;
+  z-index: 0;
+}
+.lp-blob-1 {
+  width: 320px; height: 320px;
+  background: #1E88E5;
+  opacity: .08;
+  top: -80px; left: -80px;
+}
+.lp-blob-2 {
+  width: 260px; height: 260px;
+  background: #D4AF37;
+  opacity: .08;
+  bottom: -60px; right: -60px;
+}
+
+/* ── CARD ENTRY ANIMATION ───────────────────────────────────── */
+@keyframes fadeSlideUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* ── LOGIN CARD ─────────────────────────────────────────────── */
+.login-card {
+  position: relative !important;
+  z-index: 10 !important;
+  width: 100% !important;
+  max-width: 420px !important;
+  background: #ffffff !important;
+  border-radius: 24px !important;
+  border-top: 4px solid #1E88E5 !important;
+  box-shadow: 0 20px 60px rgba(30,136,229,.15) !important;
+  padding: 48px !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+  animation: fadeSlideUp .6s ease forwards !important;
+  /* Reset pseudo-elements from dark theme */
+}
+/* Kill dark-theme pseudo-elements on the card */
+.login-card::before,
+.login-card::after {
+  display: none !important;
+  content: none !important;
+}
+
+/* ── LOGO SECTION ───────────────────────────────────────────── */
+.lp-logo {
+  text-align: center;
+  margin-bottom: 28px;
+}
+.lp-globe {
+  margin-bottom: 14px;
+}
+.lp-brand-name {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 800;
+  font-size: 28px;
+  color: #1E88E5;
+  line-height: 1;
+  margin-bottom: 4px;
+  letter-spacing: -.01em;
+}
+.lp-sub-brand {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  font-size: 13px;
+  color: #D4AF37;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+.lp-tagline {
+  font-family: 'Playfair Display', serif;
+  font-style: italic;
+  font-size: 13px;
+  color: #6B7280;
+  margin-bottom: 20px;
+}
+.lp-rule {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(212,175,55,.4), transparent);
+  margin: 0 auto;
+  width: 80%;
+}
+
+/* ── FORM FIELD LABELS ──────────────────────────────────────── */
+.lp-label {
+  display: block;
+  font-family: 'DM Sans', sans-serif;
+  font-weight: 500;
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: #6B7280;
+  margin-bottom: 7px;
+}
+
+/* ── INPUT WRAPPER (for icon + input) ──────────────────────── */
+.lp-input-wrap {
+  position: relative;
+  margin-bottom: 18px;
+}
+.lp-input-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 16px;
+  height: 16px;
+  color: #1E88E5;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+}
+
+/* ── INPUT & SELECT FIELDS ──────────────────────────────────── */
+.lp-input-wrap input,
+.lp-input-wrap select {
+  width: 100% !important;
+  padding: 14px 16px 14px 44px !important;
+  border: 1.5px solid #E5E7EB !important;
+  border-radius: 12px !important;
+  font-family: 'DM Sans', sans-serif !important;
+  font-size: 15px !important;
+  color: #1F2937 !important;
+  background: #FAFBFF !important;
+  outline: none !important;
+  box-shadow: none !important;
+  transition: border-color .2s, box-shadow .2s !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+}
+.lp-input-wrap input::placeholder {
+  color: #9CA3AF !important;
+}
+.lp-input-wrap select {
+  cursor: pointer !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236B7280' stroke-width='2'%3E%3Cpolyline points='6,9 12,15 18,9'%3E%3C/polyline%3E%3C/svg%3E") !important;
+  background-repeat: no-repeat !important;
+  background-position: right 14px center !important;
+  background-size: 15px !important;
+  padding-right: 40px !important;
+}
+.lp-input-wrap select option {
+  background: #ffffff;
+  color: #1F2937;
+}
+.lp-input-wrap input:focus,
+.lp-input-wrap select:focus {
+  border-color: #1E88E5 !important;
+  box-shadow: 0 0 0 3px rgba(30,136,229,.12) !important;
+  background: #ffffff !important;
+}
+
+/* ── ERROR MESSAGE ──────────────────────────────────────────── */
+.login-error {
+  background: #FEF2F2 !important;
+  border: 1px solid rgba(239,68,68,.3) !important;
+  border-radius: 10px !important;
+  padding: 10px 14px !important;
+  margin-bottom: 14px !important;
+  font-family: 'DM Sans', sans-serif !important;
+  font-size: 13px !important;
+  color: #DC2626 !important;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* ── SIGN IN BUTTON ─────────────────────────────────────────── */
+.login-btn {
+  width: 100% !important;
+  padding: 15px !important;
+  background: linear-gradient(135deg, #1E88E5 0%, #D4AF37 100%) !important;
+  color: #ffffff !important;
+  border: none !important;
+  border-radius: 12px !important;
+  font-family: 'Poppins', sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 15px !important;
+  letter-spacing: .5px !important;
+  cursor: pointer !important;
+  transition: transform .2s ease, box-shadow .2s ease !important;
+  box-shadow: 0 4px 16px rgba(30,136,229,.25) !important;
+  animation: none !important;
+  text-transform: none !important;
+}
+.login-btn:hover {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 8px 24px rgba(30,136,229,.38) !important;
+}
+.login-btn:active {
+  transform: translateY(0) !important;
+}
+
+/* ── DEMO CREDENTIALS BOX ───────────────────────────────────── */
+.login-hint {
+  background: linear-gradient(135deg, #F0F7FF 0%, #FFF8E7 100%) !important;
+  border: 1px solid #E5E7EB !important;
+  border-radius: 12px !important;
+  padding: 14px 16px !important;
+  margin-top: 20px !important;
+  backdrop-filter: none !important;
+  color: inherit !important;
+}
+.lp-demo-title {
+  font-family: 'Poppins', sans-serif;
+  font-weight: 600;
+  font-size: 11px;
+  color: #1E88E5;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 10px;
+}
+.lp-demo-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: #6B7280;
+  margin-bottom: 5px;
+}
+.lp-demo-item:last-child { margin-bottom: 0; }
+.lp-demo-dot {
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: #1E88E5;
+  flex-shrink: 0;
+}
+.lp-demo-key {
+  font-weight: 600;
+  color: #1F2937;
+  font-family: 'DM Sans', monospace;
+}
+
+/* ── PAGE FOOTER ────────────────────────────────────────────── */
+.lp-footer {
+  position: relative;
+  z-index: 10;
+  margin-top: 24px;
+  font-family: 'DM Sans', sans-serif;
+  font-size: 12px;
+  color: #9CA3AF;
+  text-align: center;
+}
+</style>
 </head>
 <body>
+
 <div class="login-page">
-  <div class="login-grid"></div>
 
-  <!-- Floating particles -->
-  <div class="lp-particles" aria-hidden="true">
-    <span class="lp-p" style="left:10%;top:20%;animation-delay:0s"></span>
-    <span class="lp-p" style="left:85%;top:15%;animation-delay:1.2s"></span>
-    <span class="lp-p" style="left:60%;top:70%;animation-delay:2.4s"></span>
-    <span class="lp-p" style="left:25%;top:80%;animation-delay:0.8s"></span>
-    <span class="lp-p lp-p--lg" style="left:75%;top:45%;animation-delay:1.8s"></span>
-    <span class="lp-p lp-p--lg" style="left:40%;top:10%;animation-delay:3s"></span>
-  </div>
+  <!-- Background dots pattern -->
+  <svg class="lp-pattern" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+    <defs>
+      <pattern id="lp-dots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+        <circle cx="12" cy="12" r="1.2" fill="#1E88E5" opacity=".04"/>
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#lp-dots)"/>
+  </svg>
 
+  <!-- Floating depth blobs -->
+  <div class="lp-blob lp-blob-1" aria-hidden="true"></div>
+  <div class="lp-blob lp-blob-2" aria-hidden="true"></div>
+
+  <!-- ── LOGIN CARD ─────────────────────────────────────── -->
   <div class="login-card" id="loginCard">
-    <div class="login-logo">
-      <div class="logo-icon">✈️</div>
-      <h1>TravelCRM</h1>
-      <p>Travel Agency Management Portal</p>
+
+    <!-- Logo -->
+    <div class="lp-logo">
+      <div class="lp-globe">
+        <!-- Inline SVG: Blue globe + gold swoosh -->
+        <svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="TRP World Globe">
+          <circle cx="32" cy="32" r="28" fill="rgba(30,136,229,.08)" stroke="#1E88E5" stroke-width="2.5"/>
+          <ellipse cx="32" cy="32" rx="15" ry="28" stroke="#1E88E5" stroke-width="1.8" fill="none"/>
+          <ellipse cx="32" cy="32" rx="28" ry="10" stroke="#1E88E5" stroke-width="1.8" fill="none"/>
+          <line x1="4"  y1="32" x2="60" y2="32" stroke="#1E88E5" stroke-width="1.8"/>
+          <line x1="32" y1="4"  x2="32" y2="60" stroke="#1E88E5" stroke-width="1.2" opacity=".5"/>
+          <!-- Gold swoosh arc -->
+          <path d="M10 20 Q32 8 54 22" stroke="#D4AF37" stroke-width="3" stroke-linecap="round" fill="none"/>
+          <circle cx="32" cy="32" r="3" fill="#1E88E5" opacity=".35"/>
+        </svg>
+      </div>
+      <div class="lp-brand-name">TRP WORLD</div>
+      <div class="lp-sub-brand">TravelCRM</div>
+      <div class="lp-tagline">Connecting Routes</div>
+      <div class="lp-rule"></div>
     </div>
-    <form class="login-form" id="loginForm" onsubmit="doLogin(event)">
-      <div class="form-group">
-        <label>Username</label>
+
+    <!-- Form -->
+    <form id="loginForm" onsubmit="doLogin(event)" novalidate>
+
+      <!-- Username -->
+      <label class="lp-label" for="username">Username</label>
+      <div class="lp-input-wrap">
+        <span class="lp-input-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/>
+            <circle cx="12" cy="7" r="4"/>
+          </svg>
+        </span>
         <input type="text" id="username" placeholder="Enter your username" required autocomplete="username">
       </div>
-      <div class="form-group">
-        <label>Password</label>
+
+      <!-- Password -->
+      <label class="lp-label" for="password">Password</label>
+      <div class="lp-input-wrap">
+        <span class="lp-input-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0110 0v4"/>
+          </svg>
+        </span>
         <input type="password" id="password" placeholder="••••••••" required autocomplete="current-password">
       </div>
-      <div class="form-group">
-        <label>Role</label>
+
+      <!-- Role -->
+      <label class="lp-label" for="roleSelect">Role</label>
+      <div class="lp-input-wrap">
+        <span class="lp-input-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M20.59 13.41l-7.17 7.17a2 2 0 01-2.83 0L2 12V2h10l8.59 8.59a2 2 0 010 2.82z"/>
+            <line x1="7" y1="7" x2="7.01" y2="7"/>
+          </svg>
+        </span>
         <select id="roleSelect">
           <option value="admin">Admin</option>
           <option value="crm">CRM Executive</option>
@@ -43,42 +396,42 @@
           <option value="accounts">Accounts Team</option>
         </select>
       </div>
+
+      <!-- Error message (kept for JS compatibility) -->
       <div id="loginError" class="login-error" style="display:none;"></div>
+
       <button type="submit" class="login-btn">Sign In &rarr;</button>
     </form>
-    <div class="login-hint">
-      <b>Demo Credentials</b><br>
-      admin / admin123 &nbsp;&bull;&nbsp; crm1 / crm123<br>
-      tl1 / tl123 &nbsp;&bull;&nbsp; accounts1 / acc123
-    </div>
-  </div>
-</div>
 
-<style>
-.login-error {
-  color: #fca5a5; font-size: 0.82rem; margin-top: -8px; margin-bottom: 4px;
-  background: rgba(239,68,68,0.1); border: 1px solid rgba(239,68,68,0.25);
-  border-radius: 8px; padding: 8px 12px;
-}
-.lp-particles { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-.lp-p {
-  position: absolute; width: 4px; height: 4px; border-radius: 50%;
-  background: rgba(99,102,241,0.5);
-  box-shadow: 0 0 8px rgba(99,102,241,0.8);
-  animation: particleFloat 6s ease-in-out infinite alternate;
-}
-.lp-p--lg {
-  width: 6px; height: 6px;
-  background: rgba(34,211,238,0.4);
-  box-shadow: 0 0 12px rgba(34,211,238,0.7);
-  animation-duration: 8s;
-}
-@keyframes particleFloat {
-  0%   { transform: translateY(0) translateX(0) scale(1); opacity: 0.4; }
-  50%  { opacity: 1; }
-  100% { transform: translateY(-40px) translateX(20px) scale(1.5); opacity: 0.3; }
-}
-</style>
+    <!-- Demo credentials -->
+    <div class="login-hint">
+      <div class="lp-demo-title">Demo Credentials</div>
+      <div class="lp-demo-item">
+        <span class="lp-demo-dot"></span>
+        <span><span class="lp-demo-key">admin</span> / admin123 &nbsp;&#8212;&nbsp; Admin</span>
+      </div>
+      <div class="lp-demo-item">
+        <span class="lp-demo-dot"></span>
+        <span><span class="lp-demo-key">crm1</span> / crm123 &nbsp;&#8212;&nbsp; CRM Executive</span>
+      </div>
+      <div class="lp-demo-item">
+        <span class="lp-demo-dot"></span>
+        <span><span class="lp-demo-key">tl1</span> / tl123 &nbsp;&#8212;&nbsp; Team Leader</span>
+      </div>
+      <div class="lp-demo-item">
+        <span class="lp-demo-dot"></span>
+        <span><span class="lp-demo-key">accounts1</span> / acc123 &nbsp;&#8212;&nbsp; Accounts</span>
+      </div>
+    </div>
+
+  </div>
+  <!-- /login-card -->
+
+  <!-- Footer -->
+  <div class="lp-footer">&copy; 2025 TRP WORLD. All Rights Reserved.</div>
+
+</div>
+<!-- /login-page -->
 
 <script src="assets/app.js"></script>
 <script>
@@ -114,9 +467,9 @@ document.querySelector('.login-page').addEventListener('mousemove', function(e) 
   const ry = dx * 7;
   card.style.transform = `perspective(900px) rotateX(${rx}deg) rotateY(${ry}deg) translateZ(8px)`;
   card.style.boxShadow = `
-    ${-ry * 3}px ${rx * 3}px 60px rgba(0,0,0,0.7),
-    0 0 80px rgba(99,102,241,${0.06 + Math.abs(dx) * 0.06}),
-    inset 0 1px 0 rgba(255,255,255,0.12)
+    ${-ry * 3}px ${rx * 3}px 60px rgba(30,136,229,0.22),
+    0 20px 60px rgba(30,136,229,${0.12 + Math.abs(dx) * 0.08}),
+    0 0 0 0 transparent
   `;
 });
 document.querySelector('.login-page').addEventListener('mouseleave', function() {
